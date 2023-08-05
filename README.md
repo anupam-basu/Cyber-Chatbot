@@ -1,7 +1,7 @@
 # CISC850 - Cyber Chatbot
-This is the repository for our project Cyber-Chatbot.
+This is the repository for project Cyber-Chatbot.
 ## Project Description
-For this project, we have investigated the construction of a Cyber Chatbot. A powerful chatbot that can perform menial or repetitive tasks or work along side human analysts could significantly increase the effectiveness of security analysts.
+For this project, we  investigated the construction of a Cyber Chatbot. A powerful chatbot that can perform menial or repetitive tasks or work along side human analysts could significantly increase the effectiveness of cyber security analysts. The application was interfaced in Slack.
 
 During the development of the Cyber Chatbot we have focussed more on the Cyber part of the chatbot. Our chatbot can understand questions only related to cyber questions that we have targetted.  
 
