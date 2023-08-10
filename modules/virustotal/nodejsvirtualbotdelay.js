@@ -3,23 +3,21 @@
 const aws = require('aws-sdk');
 var AWS = require('aws-sdk');
 var env = process.env;
-var fetch=require("node-fetch");
 const lambda = new aws.Lambda();
 const S3BUCKET=AWS.S3.BUCKET;
 
 const botBuilder = require('claudia-bot-builder');
-const promiseDelay = require('promise-delay');
 const slackDelayedReply = botBuilder.slackDelayedReply;
 const vt = require('node-virustotal');
 const path = require('path');
 const   _ = require('underscore');
 
 var qav="av "; //according to the av
-let qvirus ="virus";
-let qconfidence ="confidence";
-let qreport = "report";
-let qfamily ="family";
-let qavsay="avsay"; //antivirus list that says it is a virus
+const qvirus ="virus";
+const qconfidence ="confidence";
+const qreport = "report";
+const qfamily ="family";
+const qavsay="avsay"; //antivirus list that says it is a virus
 
 let replynotvirus="This is not a virus";
 var replyvirus="Alert: This file is a virus according to ";
@@ -36,7 +34,6 @@ const fs=require('fs');
 //const dir="./files_uploaded";
 const dir="/tmp";
 var files ="";
-var fullpath ="";
  
 var filelist=new Array(); 
 var userID="";
@@ -68,80 +65,71 @@ const api = botBuilder((message, apiRequest) => {
 });
 
 api.intercept((event) => {
-  if (!event.slackEvent) // if this is a normal web request, let it run
+  if (!event.slackEvent)
     return event;
 
-    const message = event.slackEvent;
-    console.log("message"+message);	
-    const str = message.text;
-    console.log("string"+str);
-    hash="";
-    file_data="";
-    last_file="";
-    files ="";
-    var fullpath="";
+  const message = event.slackEvent;
+  console.log("message"+message);	
+  const str = message.text;
+  console.log("string"+str);
+  hash="";
+  file_data="";
+  last_file="";
+  files ="";
+  userID=message.sender;
+  hash=getHash(str,userID);
+  console.log("abhijeetHash"+hash);
 
-
-    userID=message.sender;
-    hash=getHash(str,userID);
-    console.log("abhijeetHash"+hash);
-
-    var question=questiontype(str);
-   
-    const con = vt.MakePublicConnection();
-    con.setKey('e8c926d71eea9f24896f741f679295593bda6232881c5d64015dee50f801b063');
-    var s="";
-    //var detailreport="";
-    let ans = 'not';
-    // getFileReport seems to be async so we need to wrap it in promise
-    return new Promise((resolve, reject) => {
-    con.getFileReport(hash, data => {
-	//response=JSON.parse(data);
-	for(var key in data){
+  var question=questiontype(str);
+  
+  const con = vt.MakePublicConnection();
+  con.setKey('e8c926d71eea9f24896f741f679295593bda6232881c5d64015dee50f801b063');
+  var s="";
+  //var detailreport="";
+  let ans = 'not';
+  return new Promise((resolve, reject) => {
+  con.getFileReport(hash, data => {
+	for(var key in data) {
 		var val=data[key];
-		//console.log("key"+key);
 		if(key=="scans")  
-  	for(var k in val){
+  	for(var k in val) {
     		if(val[k]["detected"]==true){
     			s=s+k+"\n";
     		}
     	}
 	}
       
-      console.log(hash+"abhijeet");
-      console.log("abhijeet"+s);
-      resolve(data);
-    }, mistake => {
-        console.log("abhijeet"+JSON.stringify(mistake));
-        reject(replyFileNotFound);
-      });
+    console.log(hash+"abhijeet");
+    console.log("abhijeet"+s);
+    resolve(data);
+  }, mistake => {
+      console.log("abhijeet"+JSON.stringify(mistake));
+      reject(replyFileNotFound);
+    });
+  })
+    .then(data => { // Data from resolve
+      return slackDelayedReply(event.slackEvent, {
+        text: replytoquestion(s , data, question),
+  response_type: 'in_channel'
+      //  channel:"testcyberchatbot",
+      // parse:"full",
+      // link_names:"1"
+      })
     })
-      .then(data => { // Data from resolve
-        return slackDelayedReply(event.slackEvent, {
-          text: replytoquestion(s , data, question),
-	  response_type: 'in_channel'
-        //  channel:"testcyberchatbot",
-        // parse:"full",
-        // link_names:"1"
-        })
+    .catch(err => { // Mistake from reject
+      return slackDelayedReply(event.slackEvent, {
+        text: JSON.stringify(err)
       })
-      .catch(err => { // Mistake from reject
-        return slackDelayedReply(event.slackEvent, {
-          text: JSON.stringify(err)
-        })
-      })
-      .then(() => false);
+    }).then(() => false);
 })
 
 module.exports=api;
 }
-function sendMessage(question){
+function sendMessage(question) {
 	var channel="abhisri";
 	var RtmClient = require('@slack/client').RtmClient;
 	var CLIENT_EVENTS = require('@slack/client').CLIENT_EVENTS;
-
 	var bot_token = process.env.SLACK_BOT_TOKEN || '';
-
 	var rtm = new RtmClient(bot_token);
 
 	// The client will emit an RTM.AUTHENTICATED event on successful connection, with the `rtm.start` payload if you want to cache it
@@ -155,9 +143,8 @@ function sendMessage(question){
 	});
 
 	rtm.start();
-
 }
-function replytoquestion(str , data, qtype){
+function replytoquestion(str , data, qtype) {
   //str contains antivirus list and data is the whole json
   //qtype is the question type
   console.log("data"+data);
@@ -178,35 +165,28 @@ function replytoquestion(str , data, qtype){
       var avname=qtype.split(" ")[1];
       console.log(avname);
       console.log(str.toLowerCase().includes(avname.toLowerCase()));
-      if(str.toLowerCase().includes(avname.toLowerCase()))
+      if (str.toLowerCase().includes(avname.toLowerCase()))
         return replyav+avname;
       else return replynotav + avname;
     }  
     return replydontknow +" You can try checking flask slash command";
 }
 
-function questiontype( sent)
-{
+function questiontype(sent) {
   var natural = require('natural'),
     tokenizer = new natural.WordPunctTokenizer();
   var corpus = ["mcafee","does","scan","confidence","malware","virus","everything","family","category","detail","antivirus","bkav","totaldefense","microWorld-escan","nprotect","cmc","cat-quickheal","alyac","malwarebytes","zillya","aegislab","thehacker","alibaba","k7gw","k7antivirus","arcabit","baidu","f-prot","symantec","eset-nod32","trendmicro-housecall","avast","clamav","kaspersky","bitdefender","nano-antivirus","superantispyware","ad-aware","emsisoft","comodo","f-secure","drweb","vipre","trendmicro","sophos","cyren","jiangmin","avira","antiy","kingsoft","microsoft","virobot","gdata","ahnlab-v3","mcafee","avware","vba32","zoner","tencent","yandex","ikarus","fortinet","avg","panda","qihoo"];
   console.log("input:\n");
   var spellcheck = new natural.Spellcheck(corpus);
-  var spelltry="Mcaffee";
   console.log(sent);
   var sentence=tokenizer.tokenize(sent);
-  var temp="";
-  for (var key in sentence)
-  {
-  
-          var spell=spellcheck.getCorrections(sentence[key].toLowerCase(),1);
-          if (spell.length!=0)
-          {       
-                  sentence[key]=spell[0];
-          }
+  for (var key in sentence) {
+    var spell=spellcheck.getCorrections(sentence[key].toLowerCase(),1);
+    if (spell.length!=0) {       
+      sentence[key]=spell[0];
+    }
   }
   console.log(sentence);
-
   var isvirus=" malware virus safe open concern clean ";
   var confidence= " confidence ";
   var report=" everything report detail more else ";
@@ -230,7 +210,7 @@ function questiontype( sent)
     if(isvirus.includes(" "+word+" "))isvirusCount++;
     if(avsay.includes(" "+word+" "))avsayCount++;
   }
-  if(reportCount > 0) {
+  if (reportCount > 0) {
     console.log("this is a report question");
     return qreport;
   }
@@ -265,6 +245,7 @@ function getHashFromString(word) {
     }
     else return "";
 }
+
 function getHashFromFile(filename){
     var file_in_s3 =filename;
     var env = process.env;
@@ -276,25 +257,22 @@ function getHashFromFile(filename){
                 Key    : userID+"_"+file_in_s3};
 var userHash='';
 return new Promise((resolve, reject) => {
-        s3.getObject(s3param,function(err,data){
-        if (err)
-        { 
-        console.log(err);
-        console.log("\nNot found, hence aborted");
-        reject("Error");
-        }
-        else
-        {    
-         userHash =userHash+require("crypto").createHash('sha256').update(data.Body).digest('hex');
-                console.log("Userhash: "+userHash);
-                hash = userHash;
-                resolve(hash); 
-        }
-        });
-}).then(data=>data).catch((err) => console.error(err));
+    s3.getObject(s3param,function(err,data) {
+    if (err){ 
+      console.log(err);
+      console.log("\nNot found, hence aborted");
+      reject("Error");
+    } else {    
+      userHash =userHash+require("crypto").createHash('sha256').update(data.Body).digest('hex');
+      console.log("Userhash: "+userHash);
+      hash = userHash;
+      resolve(hash); 
+    }
+    });
+  }).then(data=>data).catch((err) => console.error(err));
 }   
-function getHash(sent,userID){
-  
+
+function getHash(sent, userID) {
   console.log(sent);
   var sentence=sent.split(' ');
   var temp="";
@@ -323,82 +301,69 @@ function getHash(sent,userID){
   }
   console.log("tokens:hash"+hash);
   console.log(sentence);
-
   if(hash==""){
     if(filename!="last"){
       getHashFromFile("chatbot");
     }
     else{
-      //getFileListFromS3();
       getHashFromFile(filename);
     } 
   }
   return hash;
 }
 //gets the list of files from S3 start
-function getFileListFromS3()
-{
+function getFileListFromS3() {
     filelist.length = 0;
     getFileListFromS3operation();
     console.log(tempUser+" is the temp user");
     console.log(userID+" is the current user");
-    if (tempUser != userID)
-    {
-            console.log("in condition for timeout");
-    //        getFileListFromS3();
-            setTimeout(function(){ console.log("in time out"); }, 4000);
-
+    if (tempUser != userID) {
+      console.log("in condition for timeout");
+      setTimeout(function(){ console.log("in time out"); }, 4000);
     }
     if(fileliststr=='' || tempUser != userID)
-        fileliststr="NULL";
+      fileliststr="NULL";
     filelist.length = 0;
 }
-function getFileListFromS3operation()
-{
+
+function getFileListFromS3operation() {
     filelist.length=0;
     var s3 = new aws.S3({accessKeyId: env.AWS_ID, secretAccessKey:env.AWS_KEY,region:"us-east-2"});
-        s3 = new aws.S3({apiVersion: '2006-03-01'});
+    s3 = new aws.S3({apiVersion: '2006-03-01'});
     var params = { 
-        Bucket: S3BUCKET
+      Bucket: S3BUCKET
     };
     console.log("in get list back");
-
-        console.log("in promise");
-        return s3.listObjectsV2(params, function (err, data) {
-        tempUser = userID;
-        var search = tempUser;
-        console.log(tempUser);
-        fileliststr="";
-        var arrlist = new Array();
-        console.log("in s3 async");
-        if(err)
+    console.log("in promise");
+    return s3.listObjectsV2(params, function (err, data) {
+    tempUser = userID;
+    var search = tempUser;
+    console.log(tempUser);
+    fileliststr="";
+    var arrlist = new Array();
+    console.log("in s3 async");
+    if (err) {
+      console.error(err);
+    } else {
+        filelist.length = 0;
+        console.log("in s3 no error");
+        for (var i = 0; i<data.Contents.length ; i++)
         {
-                console.log(err);
+            if(data.Contents[i].Key.includes(search))
+            arrlist.push(data.Contents[i]);
         }
-        else{
-            filelist.length = 0;
-            console.log("in s3 no error");
-            for (var i = 0; i<data.Contents.length ; i++)
-            {
-                if(data.Contents[i].Key.includes(search))
-                arrlist.push(data.Contents[i]);
-            }
-            orderingLastUpdatedFile(arrlist);
-        }
-    }).promise();
+        orderingLastUpdatedFile(arrlist);
+    }
+  }).promise();
 }
-function orderingLastUpdatedFile(arrlist)
-{
-    console.log("ordering");
+function orderingLastUpdatedFile(arrlist) {
     console.log(tempUser);
     arrlist.sort(function (a,b){
-                        return b.LastModified-a.LastModified;
-                });
-                for(var i=0;i<arrlist.length;i++)
-                {
-        //                console.log(arrlist[i].Key.substring(10));
-                        filelist.push(arrlist[i].Key.substring(10));
-                }
+      return b.LastModified-a.LastModified;
+    });
+    for(var i=0;i<arrlist.length;i++) {
+      filelist.push(arrlist[i].Key.substring(10));
+    }
     fileliststr = filelist.join(" ");
     filelist.length = 0;
 }
